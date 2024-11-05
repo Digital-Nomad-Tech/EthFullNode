@@ -1,0 +1,42 @@
+version: '3'
+services:
+  geth:
+    image: ethereum/client-go:stable
+    container_name: geth
+    volumes:
+      - ./geth:/root/.ethereum
+    ports:
+      - "127.0.0.1:8545:8545"
+      - "127.0.0.1:8551:8551"
+      - "30303:30303"
+      - "30303:30303/udp"
+    command: >
+      --http
+      --http.addr "0.0.0.0"
+      --http.port "8545"
+      --http.corsdomain "*"
+      --syncmode "snap"
+      --authrpc.addr "0.0.0.0"
+      --authrpc.port "8551"
+      --authrpc.jwtsecret /jwtsecret/jwt.hex
+      --authrpc.vhosts="*"
+      --nat "extip:<change-to-your-server-ip>"
+    restart: unless-stopped
+    environment:
+      - JWT_SECRET=/jwtsecret/jwt.hex
+    volumes:
+      - ./jwtsecret:/jwtsecret
+  prysm-beacon:
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain:latest
+    container_name: prysm-beacon
+    depends_on:
+      - geth
+    ports:
+      - "127.0.0.1:3500:3500"
+      - "4000:4000"
+    entrypoint: /bin/bash
+    command: -c 'sleep 10 && /beacon-chain --execution-endpoint=http://geth:8551 --jwt-secret=/jwtsecret/jwt.hex --datadir=/data --accept-terms-of-use'
+    volumes:
+      - ./data:/data
+      - ./jwtsecret:/jwtsecret
+    restart: unless-stopped
